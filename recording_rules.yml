@@ -1,0 +1,29 @@
+groups:
+  - name: green_finops_recording_rules
+    interval: 30s
+    rules:
+      # Pre-aggregate per-handler request rates so dashboard panels load instantly.
+      - record: job:http_requests_total:rate5m
+        expr: sum(rate(http_requests_total[5m])) by (handler, status)
+
+      # Pre-aggregate 5xx error rate ratio for use in the error-rate panel and alerts.
+      - record: job:http_error_rate:ratio5m
+        expr: >-
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+          / sum(rate(http_requests_total[5m]))
+
+      # Pre-compute p95 and p99 latency histograms for /predict to avoid expensive
+      # histogram_quantile computations at query time.
+      - record: job:predict_duration_seconds_p95:5m
+        expr: >-
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{handler="/predict"}[5m]))
+            by (le)
+          )
+
+      - record: job:predict_duration_seconds_p99:5m
+        expr: >-
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket{handler="/predict"}[5m]))
+            by (le)
+          )
