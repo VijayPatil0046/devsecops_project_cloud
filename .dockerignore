@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+data
+outputs
+frontend/green-cloud-guardian/node_modules
+frontend/green-cloud-guardian/dist

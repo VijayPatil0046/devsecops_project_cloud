@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from io import StringIO
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from jose import JWTError, jwt
 
@@ -29,6 +30,7 @@ app.add_middleware(
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     raise RuntimeError("SECRET_KEY environment variable is required.")
+JWT_SECRET_KEY: str = SECRET_KEY
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
@@ -45,14 +47,14 @@ class LoginRequest(BaseModel):
     password: str
 
 
-def create_access_token(data: dict[str, str | int | bool]) -> str:
-    token_data = data.copy()
+def create_access_token(data: dict[str, Any]) -> str:
+    token_data: dict[str, Any] = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     token_data.update({"exp": expire})
-    return jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(token_data, JWT_SECRET_KEY, algorithm=ALGORITHM)
 
 
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict[str, str | int | bool]:
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict[str, Any]:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -62,7 +64,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
 
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
         username = payload.get("sub")
         if username != ADMIN_USERNAME:
             raise HTTPException(
@@ -138,8 +140,8 @@ def _add_estimated_savings(frame: pd.DataFrame) -> pd.DataFrame:
 @app.post("/predict")
 async def predict(
     file: UploadFile = File(...),
-    token_payload: dict[str, str | int | bool] = Depends(verify_token),
-) -> list[dict[str, float | int | str]]:
+    token_payload: dict[str, Any] = Depends(verify_token),
+) -> list[dict[str, Any]]:
     request_frame = _load_request_csv(file)
 
     try:
@@ -167,4 +169,5 @@ async def predict(
         "estimated_savings",
         "reason",
     ]
-    return response_frame[output_columns].to_dict(orient="records")
+    records = response_frame[output_columns].to_dict(orient="records")
+    return [{str(key): value for key, value in row.items()} for row in records]
