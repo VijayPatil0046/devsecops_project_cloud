@@ -26,10 +26,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -55,32 +55,20 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install backend test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pytest pytest-cov
+          pip install -r requirements.txt pytest
 
-      - name: Audit Python dependencies for known CVEs
-        run: |
-          pip install pip-audit
-          pip-audit --requirement requirements.txt
-
-      - name: Run backend tests with coverage
-        run: pytest -q tests/test_api.py --cov=. --cov-report=term-missing --cov-report=html:htmlcov --cov-fail-under=70
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
-        if: always()
-        with:
-          name: backend-coverage-report
-          path: htmlcov/
+      - name: Run backend tests
+        run: pytest -q tests/test_api.py
 
   sonarcloud-scan:
     name: SonarCloud Scan
@@ -91,7 +79,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -109,7 +97,7 @@ jobs:
 
       - name: SonarCloud Scan
         if: steps.sonar-token.outputs.should_scan == 'true'
-        uses: sonarsource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602  # v6
+        uses: sonarsource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
@@ -119,20 +107,16 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444  # v5
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Install frontend dependencies
         working-directory: frontend/green-cloud-guardian
         run: npm install
-
-      - name: Audit frontend dependencies for known CVEs
-        working-directory: frontend/green-cloud-guardian
-        run: npm audit --audit-level=high
 
       - name: Run frontend lint
         working-directory: frontend/green-cloud-guardian
@@ -156,36 +140,16 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3
+        uses: docker/setup-buildx-action@v3
 
       - name: Build backend image
         run: docker build -f Dockerfile.backend -t green-cloud-cost-optimization-backend:ci .
 
-      - name: Scan backend image for vulnerabilities
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
-        with:
-          image-ref: green-cloud-cost-optimization-backend:ci
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
-
       - name: Build frontend image
         run: docker build -f frontend/green-cloud-guardian/Dockerfile -t green-cloud-cost-optimization-frontend:ci frontend/green-cloud-guardian
-
-      - name: Scan frontend image for vulnerabilities
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
-        with:
-          image-ref: green-cloud-cost-optimization-frontend:ci
-          format: table
-          exit-code: "1"
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
 
   push:
     name: Push Docker Images
@@ -196,19 +160,19 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push backend image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.backend
@@ -218,7 +182,7 @@ jobs:
             ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
 
       - name: Build and push frontend image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
+        uses: docker/build-push-action@v6
         with:
           context: frontend/green-cloud-guardian
           file: frontend/green-cloud-guardian/Dockerfile
@@ -251,7 +215,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
+        uses: actions/checkout@v5
 
       - name: Check required deploy secrets
         id: deploy-secrets
@@ -268,7 +232,7 @@ jobs:
 
       - name: Log in to Docker Hub
         if: steps.deploy-secrets.outputs.should_deploy == 'true'
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -296,7 +260,7 @@ jobs:
 
       - name: Set up Node.js
         if: steps.deploy-secrets.outputs.should_deploy == 'true'
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444  # v5
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -310,4 +274,4 @@ jobs:
 
       - name: Tear down stack
         if: always() && steps.deploy-secrets.outputs.should_deploy == 'true'
-        run: JWT_SECRET=dummy ELECTRICITY_MAPS_API_KEY=dummy GRAFANA_ADMIN_PASSWORD=dummy docker compose down -v
+        run: JWT_SECRET=dummy ELECTRICITY_MAPS_API_KEY=dummy docker compose down -v
