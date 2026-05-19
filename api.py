@@ -21,13 +21,9 @@ from vault_bootstrap import bootstrap_secrets_from_vault
 
 
 app = FastAPI(title="Green FinOps API", version="1.0.0")
-
-_allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "")
-ALLOWED_ORIGINS: list[str] = [o.strip() for o in _allowed_origins_raw.split(",") if o.strip()] or ["*"]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,12 +41,8 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 security = HTTPBearer(auto_error=False)
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
-ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
-_env_admin_password_hash = os.getenv("ADMIN_PASSWORD_HASH")
-if _env_admin_password_hash:
-    ADMIN_PASSWORD_HASH = _env_admin_password_hash
-else:
-    ADMIN_PASSWORD_HASH = pwd_context.hash(os.getenv("ADMIN_PASSWORD", "admin123"))
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD_HASH = pwd_context.hash("admin123")
 
 MODEL_PATH = "model.pkl"
 SCALER_PATH = "scaler.pkl"
@@ -153,20 +145,6 @@ def _load_request_csv(upload: UploadFile) -> pd.DataFrame:
             status_code=400,
             detail=f"vcpu_usage and ram_usage must be numeric: {exc}",
         ) from exc
-
-    if frame.empty:
-        raise HTTPException(status_code=400, detail="CSV file contains no data rows.")
-
-    if (frame["vcpu_usage"] < 0).any() or (frame["vcpu_usage"] > 100).any():
-        raise HTTPException(
-            status_code=422,
-            detail="vcpu_usage must be between 0 and 100.",
-        )
-    if (frame["ram_usage"] < 0).any():
-        raise HTTPException(
-            status_code=422,
-            detail="ram_usage must be non-negative.",
-        )
 
     prepared = frame.copy()
     if "server_id" not in prepared.columns:

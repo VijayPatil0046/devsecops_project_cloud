@@ -36,7 +36,6 @@ services:
       - --storage.tsdb.path=/prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
       - prometheus-data:/prometheus
     depends_on:
       - backend
@@ -48,8 +47,6 @@ services:
     image: grafana/grafana-oss:11.5.0
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      # WARNING: Change GRAFANA_ADMIN_PASSWORD before deploying to any shared environment.
-      # The default value "admin123" is insecure. Set a strong password in your .env file.
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin123}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
