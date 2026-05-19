@@ -1,0 +1,125 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: green-finops-alerts
+    folder: Green FinOps
+    interval: 1m
+    rules:
+      # Alert when the API 5xx error rate exceeds 5 % of total requests over 5 minutes.
+      - uid: high-api-error-rate
+        title: High API Error Rate
+        condition: threshold
+        data:
+          - refId: error_rate
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >-
+                sum(rate(http_requests_total{status=~"5.."}[5m]))
+                / sum(rate(http_requests_total[5m]))
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: threshold
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator:
+                    params: [0.05]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [error_rate]
+                  reducer:
+                    type: last
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API 5xx error rate is above 5 % for more than 2 minutes."
+          description: "Current rate: {{ $values.error_rate.Value | humanizePercentage }}"
+
+      # Alert when p99 latency on /predict exceeds 1 second over a 5-minute window.
+      - uid: high-predict-latency-p99
+        title: High /predict Latency (p99)
+        condition: threshold
+        data:
+          - refId: p99_latency
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >-
+                histogram_quantile(0.99,
+                  sum(rate(http_request_duration_seconds_bucket{handler="/predict"}[5m]))
+                  by (le)
+                )
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: threshold
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator:
+                    params: [1.0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [p99_latency]
+                  reducer:
+                    type: last
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p99 latency on /predict is above 1 s for more than 2 minutes."
+          description: "Current p99: {{ $values.p99_latency.Value | humanizeDuration }}"
+
+      # Alert when the ML anomaly rate in predictions exceeds 30 % — may indicate
+      # a data-quality issue or a sudden shift in workload characteristics.
+      - uid: high-ml-anomaly-rate
+        title: Elevated ML Anomaly Rate
+        condition: threshold
+        data:
+          - refId: request_rate
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: >-
+                sum(rate(http_requests_total{handler="/predict",status="200"}[5m]))
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: threshold
+            datasourceUid: "-100"
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [request_rate]
+                  reducer:
+                    type: last
+              type: classic_conditions
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "Sustained prediction traffic detected — review ML anomaly output."
